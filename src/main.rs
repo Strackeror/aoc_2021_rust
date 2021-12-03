@@ -44,18 +44,15 @@ fn day02(path: &str) -> Result<()> {
 
 fn day03(path: &str) -> Result<()> {
     let file = std::fs::read_to_string(path)?;
-    let bits = file.lines().map(|s| s.chars().collect_vec()).map(|v| {
-        v.chunks(1)
-            .map(|c| c.iter().collect::<String>())
-            .filter_map(|c| c.parse::<i32>().ok())
-            .map(|i| i != 0)
-            .collect_vec()
-    });
+    let bits = file
+        .lines()
+        .map(|s| s.chars().map(|c| c.to_digit(2).unwrap() != 0).collect_vec())
+        .collect_vec();
 
-    fn common_bits(it: impl Iterator<Item = Vec<bool>> + Clone) -> Vec<bool> {
-        let len = it.clone().count();
-        let size = it.clone().next().unwrap().len();
-        it.fold(vec![0; size], |acc, v| {
+    fn common_bits(vec: &[Vec<bool>]) -> Vec<bool> {
+        let len = vec.len();
+        vec.iter()
+            .fold(vec![0; vec[0].len()], |acc, v| {
             acc.iter()
                 .zip(v.iter())
                 .map(|(a, b)| a + if *b { 1 } else { 0 })
@@ -66,40 +63,29 @@ fn day03(path: &str) -> Result<()> {
         .collect()
     }
 
-    fn bits_to_int(vec: impl IntoIterator<Item = bool>) -> i32 {
-        vec.into_iter()
+    fn bits_to_int(it: impl IntoIterator<Item = bool>) -> i32 {
+        it.into_iter()
             .fold(0, |acc, i| (acc << 1) + if i { 1 } else { 0 })
     }
 
-    let gamma = bits_to_int(common_bits(bits.clone()));
-    let epsilon = bits_to_int(common_bits(bits.clone()).iter().map(|b| !b));
+    let gamma = bits_to_int(common_bits(&bits));
+    let epsilon = bits_to_int(common_bits(&bits).iter().map(|b| !b));
 
     dbg!((gamma, epsilon, gamma * epsilon));
 
-    let mut filtered_bits = bits.clone().collect_vec();
+    let mut filtered_bits = bits.clone();
     let mut filter = vec![false; 0];
     while filtered_bits.len() > 1 {
-        let common_bits = common_bits(filtered_bits.clone().into_iter());
-        filter.push(common_bits[filter.len()]);
-        filtered_bits = filtered_bits
-            .iter()
-            .filter(|bits| bits.starts_with(filter.as_slice()))
-            .map(Clone::clone)
-            .collect();
+        filter.push(common_bits(&filtered_bits)[filter.len()]);
+        filtered_bits.retain(|v| v.starts_with(filter.as_slice()));
     }
     let oxygen = bits_to_int(filtered_bits[0].clone());
 
-    let mut filtered_bits = bits.collect_vec();
+    let mut filtered_bits = bits;
     let mut filter = vec![false; 0];
     while filtered_bits.len() > 1 {
-        let common_bits = common_bits(filtered_bits.clone().into_iter());
-        dbg!(common_bits.clone());
-        filter.push(!common_bits[filter.len()]);
-        filtered_bits = filtered_bits
-            .iter()
-            .filter(|bits| bits.starts_with(filter.as_slice()))
-            .map(Clone::clone)
-            .collect();
+        filter.push(!common_bits(&filtered_bits)[filter.len()]);
+        filtered_bits.retain(|v| v.starts_with(filter.as_slice()))
     }
     let co2 = bits_to_int(filtered_bits[0].clone());
 
