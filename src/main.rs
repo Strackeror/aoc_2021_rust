@@ -1,54 +1,82 @@
-use std::clone::Clone;
+use std::{
+    clone::Clone,
+    collections::HashMap,
+    fs::OpenOptions,
+    io::{BufRead, Read},
+    os::windows::raw::HANDLE,
+};
 
 use anyhow::Result;
 use itertools::Itertools;
 
-fn day03_bin(path: &str) -> Result<()> {
-    let file = std::fs::read_to_string(path)?;
-    let lines = file.lines();
+type Grid = Vec<Vec<Option<i32>>>;
 
-    let bit_count = lines.clone().next().unwrap().len();
-    let nums = lines
-        .map(|l| i32::from_str_radix(l, 2).unwrap())
+fn day04(path: &str) -> Result<()> {
+    let file = std::fs::read_to_string(path)?;
+
+    let numbers = file
+        .lines()
+        .next()
+        .unwrap()
+        .split(',')
+        .map(|s| s.parse::<i32>().unwrap())
         .collect_vec();
 
-    let bits = || (0..bit_count).into_iter().rev().map(|i| 1 << i);
-    fn common_bit(nums: &[i32], bit: i32) -> i32 {
-        if nums.iter().filter(|num| (*num & bit) != 0).count() * 2 >= nums.len() {
-            bit
-        } else {
-            0
-        }
+    let grids = file
+        .lines()
+        .skip(1)
+        .chunks(6)
+        .into_iter()
+        .map(|chunk| {
+            chunk
+                .skip(1)
+                .map(|grid_line| {
+                    grid_line
+                        .split_whitespace()
+                        .map(|s| Some(s.parse::<i32>().unwrap()))
+                        .collect_vec()
+                })
+                .collect_vec()
+        })
+        .collect_vec();
+
+    fn is_won(grid: &Grid) -> bool {
+        grid.iter().any(|l| l.iter().all(Option::is_none))
+            || (0..grid[0].len()).any(|i| grid.iter().all(|l| l[i].is_none()))
     }
 
-    let gamma = bits().fold(0, |acc, bit| acc | common_bit(&nums, bit));
-    let epsilon = bits().fold(0, |acc, bit| acc | (common_bit(&nums, bit) ^ bit));
-    dbg!(gamma, epsilon, gamma * epsilon);
+    fn grid_result(grid: &Grid, number: i32) -> i32 {
+        grid.iter()
+            .map(|l| l.iter().filter_map(|o| *o).sum::<i32>())
+            .sum::<i32>()
+            * number
+    }
 
-    let oxygen = bits().fold(nums.clone(), |nums, bit| {
-        let common_bit = common_bit(&nums, bit);
-        nums.into_iter()
-            .filter(|num| num & bit == common_bit)
-            .collect()
-    })[0];
+    let mut marked_grids = grids;
+    let mut won_results = vec![0i32; 0];
 
-    let co2 = bits().fold(nums, |nums, bit| {
-        let common_bit = common_bit(&nums, bit);
-        if nums.len() == 1 {
-            return nums;
+    for num in numbers {
+        for grid in marked_grids.iter_mut() {
+            for line in grid.iter_mut() {
+                for grid_num in line.iter_mut() {
+                    if *grid_num == Some(num) {
+                        *grid_num = None
+                    }
+                }
+            }
         }
-        nums.into_iter()
-            .filter(|num| num & bit != common_bit)
-            .collect()
-    })[0];
 
-    dbg!(oxygen, co2, oxygen * co2);
+        let (won, left): (Vec<Grid>, Vec<Grid>) = marked_grids.into_iter().partition(is_won);
+        marked_grids = left;
+        won_results.extend(won.into_iter().map(|g| grid_result(&g, num)));
+    }
+    dbg!(won_results.first(), won_results.last());
 
     Ok(())
 }
 
-fn day01() -> Result<()> {
-    let file = std::fs::read_to_string("input01.txt")?;
+fn day01(path: &str) -> Result<()> {
+    let file = std::fs::read_to_string(path)?;
     let ints = file.split('\n').filter_map(|s| str::parse::<u32>(s).ok());
 
     let ex1: usize = ints.clone().tuple_windows().filter(|(a, b)| b > a).count();
@@ -137,9 +165,63 @@ fn day03(path: &str) -> Result<()> {
     Ok(())
 }
 
+fn day03_bin(path: &str) -> Result<()> {
+    let file = std::fs::read_to_string(path)?;
+    let lines = file.lines();
+
+    let bit_count = lines.clone().next().unwrap().len();
+    let nums = lines
+        .map(|l| i32::from_str_radix(l, 2).unwrap())
+        .collect_vec();
+
+    let bits = || (0..bit_count).into_iter().rev().map(|i| 1 << i);
+    fn common_bit(nums: &[i32], bit: i32) -> i32 {
+        if nums.iter().filter(|num| (*num & bit) != 0).count() * 2 >= nums.len() {
+            bit
+        } else {
+            0
+        }
+    }
+
+    let gamma = bits().fold(0, |acc, bit| acc | common_bit(&nums, bit));
+    let epsilon = bits().fold(0, |acc, bit| acc | (common_bit(&nums, bit) ^ bit));
+    dbg!(gamma, epsilon, gamma * epsilon);
+
+    let oxygen = bits().fold(nums.clone(), |nums, bit| {
+        let common_bit = common_bit(&nums, bit);
+        nums.into_iter()
+            .filter(|num| num & bit == common_bit)
+            .collect()
+    })[0];
+
+    let co2 = bits().fold(nums, |nums, bit| {
+        let common_bit = common_bit(&nums, bit);
+        if nums.len() == 1 {
+            return nums;
+        }
+        nums.into_iter()
+            .filter(|num| num & bit != common_bit)
+            .collect()
+    })[0];
+
+    dbg!(oxygen, co2, oxygen * co2);
+
+    Ok(())
+}
+
 fn main() {
-    println!(
-        "{:?}",
-        day03_bin(std::env::args().collect_vec()[1].as_str())
-    );
+    let args = std::env::args().collect_vec();
+    let input_path = args[1].clone();
+
+    match args.get(2) {
+        Some(n) => match n.as_str() {
+            "day01" => day01(&input_path),
+            "day02" => day02(&input_path),
+            "day03" => day03(&input_path),
+            "day03_bin" => day03_bin(&input_path),
+            _ => panic!("unexpected arg"),
+        },
+        None => day04(&input_path),
+    }
+    .unwrap();
 }
