@@ -1,16 +1,54 @@
 use std::{
     clone::Clone,
     collections::HashMap,
-    fs::OpenOptions,
-    io::{BufRead, Read},
-    os::windows::raw::HANDLE,
+    io::BufRead,
+    ops::{Deref, Range},
 };
 
 use anyhow::Result;
 use itertools::Itertools;
 
-type Grid = Vec<Vec<Option<i32>>>;
+type Coords = (i32, i32);
 
+fn day05(path: &str) -> Result<()> {
+    let file = std::fs::read_to_string(path)?;
+    let coords: Vec<(Coords, Coords)> = file
+        .lines()
+        .map(|line| {
+            line.replace("->", "")
+                .replace(",", " ")
+                .split_ascii_whitespace()
+                .map(|n| n.parse().unwrap())
+                .collect_vec()
+        })
+        .map(|v| ((v[0], v[1]), (v[2], v[3])))
+        .collect();
+
+    fn range(start: i32, end: i32) -> Box<dyn Iterator<Item = i32>> {
+        match start.cmp(&end) {
+            std::cmp::Ordering::Equal => Box::new(std::iter::repeat(start)),
+            std::cmp::Ordering::Greater => Box::new((end..start + 1).rev()),
+            std::cmp::Ordering::Less => Box::new(start..end + 1),
+        }
+    }
+    let mut counts: HashMap<Coords, i32> = Default::default();
+    coords
+        .iter()
+        // Uncomment for ex1
+        //.filter(|(start, end)| start.0 == end.0 || start.1 == end.1)
+        .for_each(|(start, end)| {
+            range(start.0, end.0)
+                .zip(range(start.1, end.1))
+                .for_each(|(x, y)| *counts.entry((x, y)).or_insert(0) += 1);
+        });
+
+    let count = counts.iter().filter(|(_, count)| **count > 1).count();
+    //dbg!(counts.iter().sorted().collect_vec());
+    dbg!(count);
+    Ok(())
+}
+
+type Grid = Vec<Vec<Option<i32>>>;
 fn day04(path: &str) -> Result<()> {
     let file = std::fs::read_to_string(path)?;
 
@@ -219,9 +257,10 @@ fn main() {
             "day02" => day02(&input_path),
             "day03" => day03(&input_path),
             "day03_bin" => day03_bin(&input_path),
+            "day04" => day04(&input_path),
             _ => panic!("unexpected arg"),
         },
-        None => day04(&input_path),
+        None => day05(&input_path),
     }
     .unwrap();
 }
