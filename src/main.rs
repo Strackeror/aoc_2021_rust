@@ -5,6 +5,8 @@ use std::{
     ops::{Deref, Range},
 };
 
+mod day06;
+
 use anyhow::Result;
 use itertools::Itertools;
 
@@ -258,9 +260,10 @@ fn main() {
             "day03" => day03(&input_path),
             "day03_bin" => day03_bin(&input_path),
             "day04" => day04(&input_path),
+            "day05" => day05(&input_path),
             _ => panic!("unexpected arg"),
         },
-        None => day05(&input_path),
+        None => day06::day06(&input_path),
     }
     .unwrap();
 }
