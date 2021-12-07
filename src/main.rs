@@ -1,11 +1,7 @@
-use std::{
-    clone::Clone,
-    collections::HashMap,
-    io::BufRead,
-    ops::{Deref, Range},
-};
+use std::{clone::Clone, collections::HashMap, io::BufRead};
 
 mod day06;
+mod day07;
 
 use anyhow::Result;
 use itertools::Itertools;
@@ -261,9 +257,10 @@ fn main() {
             "day03_bin" => day03_bin(&input_path),
             "day04" => day04(&input_path),
             "day05" => day05(&input_path),
+            "day06" => day06::day06(&input_path),
             _ => panic!("unexpected arg"),
         },
-        None => day06::day06(&input_path),
+        None => day07::day07(&input_path),
     }
     .unwrap();
 }
