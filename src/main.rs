@@ -9,6 +9,7 @@ mod day06;
 mod day07;
 mod day08;
 mod day09;
+mod day10;
 
 use anyhow::Result;
 use itertools::Itertools;
@@ -28,9 +29,10 @@ fn main() {
             "day06" => day06::day06(&input_path),
             "day07" => day07::day07(&input_path),
             "day08" => day08::day08(&input_path),
+            "day09" => day09::day09(&input_path),
             _ => panic!("unexpected arg"),
         },
-        None => day09::day09(&input_path),
+        None => day10::day10(&input_path),
     }
     .unwrap();
 }
