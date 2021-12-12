@@ -7,45 +7,36 @@ use std::collections::HashMap;
 
 #[derive(Default, Clone, Debug)]
 struct Node {
-    name: String,
     small: bool,
-    links: Vec<String>,
+    links: Vec<usize>,
 }
 
 fn visit_node(
-    current: Node,
-    map: &HashMap<String, Node>,
-    mut visited: Vec<Node>,
+    current: usize,
+    target: usize,
+    map: &[Node],
+    mut visited: Vec<usize>,
     small_cave: bool,
-) -> Vec<Vec<Node>> {
-    visited.push(current.clone());
-    if current.name == "end" {
+) -> Vec<Vec<usize>> {
+    visited.push(current);
+    if current == target {
         return [visited].into();
     }
 
-    current
+    if visited.len() > 1 && visited[0] == current {
+        return vec![];
+    }
+
+    let is_visited = map[current].small && visited.iter().filter(|n| **n == current).count() > 1;
+    if is_visited && small_cave {
+        return vec![];
+    }
+
+    map[current]
         .links
         .iter()
-        .map(|name| map[name].clone())
-        .flat_map(|node| {
-            if node.name == "start" {
-                vec![]
-            } else if !current.small {
-                visit_node(node, map, visited.clone(), small_cave)
-            } else {
-                let already_visited = visited.iter().filter(|n| n.name == current.name).count() > 1;
-                if already_visited && small_cave {
-                    vec![]
-                } else {
-                    visit_node(node, map, visited.clone(), small_cave || already_visited)
-                }
-            }
-        })
-        .collect_vec()
-}
-
-fn show(list: &Vec<Node>) -> String {
-    list.iter().map(|n| n.name.as_str()).join(",")
+        .flat_map(|id| visit_node(*id, target, map, visited.clone(), small_cave || is_visited))
+        .collect()
 }
 
 pub(crate) fn day12(path: &str) -> Result<()> {
@@ -56,31 +47,34 @@ pub(crate) fn day12(path: &str) -> Result<()> {
         .collect();
     let inverted_links = links.iter().map(|(a, b)| (b.clone(), a.clone()));
 
-    let map: HashMap<String, Node> = links
+    let link_map: HashMap<_, _> = links
         .iter()
         .map(Clone::clone)
         .chain(inverted_links)
         .into_group_map_by(|f| f.0.clone())
         .into_iter()
-        .map(|(name, links)| {
-            (
-                name.clone(),
-                Node {
-                    small: name.chars().all(char::is_lowercase),
-                    links: links.iter().map(|f| f.1.clone()).collect(),
-                    name,
-                },
-            )
+        .enumerate()
+        .map(|(id, (name, links))| (name, (id, links)))
+        .collect();
+
+    let id_map: Vec<_> = link_map
+        .iter()
+        .sorted_by_key(|(_, (id, _))| id)
+        .map(|(name, (_, links))| Node {
+            small: name.chars().all(char::is_lowercase),
+            links: links.iter().map(|link| link_map[&link.1].0).collect(),
         })
         .collect();
-    let ex1 = visit_node(map["start"].clone(), &map, vec![], true);
+    let start_node = link_map["start"].0;
+    let end_node = link_map["end"].0;
+    let ex1 = visit_node(start_node, end_node, &id_map, vec![], true);
     dbg!(ex1.len());
 
-    let ex2 = visit_node(map["start"].clone(), &map, vec![], false);
-    // ex2.iter().for_each(|n| {
-    //     dbg!(show(n));
-    // });
+    let ex2 = visit_node(start_node, end_node, &id_map, vec![], false);
     dbg!(ex2.len());
+    // // ex2.iter().for_each(|n| {
+    // //     dbg!(show(n));
+    // // });
 
     Ok(())
 }
