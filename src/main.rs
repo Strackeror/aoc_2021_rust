@@ -17,6 +17,8 @@ mod day14;
 mod day15;
 mod day16;
 mod day17;
+mod day18;
+
 fn main() {
     let args = std::env::args().collect_vec();
     let input = args[1].clone();
@@ -39,9 +41,11 @@ fn main() {
             "day13" => day13::day13(&input),
             "day14" => day14::day14(&input),
             "day15" => day15::run(&input),
+            "day16" => day16::run(&input),
+            "day17" => day17::run(&input),
             _ => panic!("unexpected arg"),
         },
-        None => day17::run(&input),
+        None => day18::run(&input),
     }
     .unwrap();
 }
