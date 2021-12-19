@@ -56,87 +56,80 @@ mod day19 {
         }
     }
 
-    fn all_rotations() -> Vec<((usize, usize, usize), (i32, i32, i32))> {
-        [0, 1, 2]
-            .into_iter()
-            .permutations(3)
-            .map(|v| v.into_iter().collect_tuple().unwrap())
-            .cartesian_product(
-                [-1, 1]
-                    .into_iter()
-                    .cartesian_product([-1, 1].into_iter())
-                    .cartesian_product([-1, 1].into_iter())
-                    .map(|((a, b), c)| (a, b, c)),
-            )
-            .collect()
+    fn rotate(Vector(x, y, z): Vector, rot: i32) -> Vector {
+        match rot {
+            0 => Vector(x, y, z),
+            1 => Vector(x, z, -y),
+            2 => Vector(x, -y, -z),
+            3 => Vector(x, -z, y),
+            4 => Vector(y, x, -z),
+            5 => Vector(y, z, x),
+            6 => Vector(y, -x, z),
+            7 => Vector(y, -z, -x),
+            8 => Vector(z, x, y),
+            9 => Vector(z, y, -x),
+            10 => Vector(z, -x, -y),
+            11 => Vector(z, -y, x),
+            12 => Vector(-x, y, -z),
+            13 => Vector(-x, z, y),
+            14 => Vector(-x, -y, z),
+            15 => Vector(-x, -z, -y),
+            16 => Vector(-y, x, z),
+            17 => Vector(-y, z, -x),
+            18 => Vector(-y, -x, -z),
+            19 => Vector(-y, -z, x),
+            20 => Vector(-z, x, -y),
+            21 => Vector(-z, y, x),
+            22 => Vector(-z, -x, y),
+            23 => Vector(-z, -y, -x),
+            _ => unreachable!(),
+        }
     }
 
-    fn apply_rotation(v: Vector, rot: ((usize, usize, usize), (i32, i32, i32))) -> Vector {
-        let v = [v.0, v.1, v.2];
-
-        Vector(
-            v[rot.0 .0] * rot.1 .0,
-            v[rot.0 .1] * rot.1 .1,
-            v[rot.0 .2] * rot.1 .2,
-        )
-    }
-
-    fn diff_list(points: &[Vector]) -> Vec<(usize, usize, Vector)> {
-        points
+    fn diff_list(points: &[Vector]) -> HashMap<Vector, (usize, usize)> {
+        let combinations = points
             .iter()
             .copied()
             .enumerate()
-            .tuple_combinations::<(_, _)>()
-            .map(|((idx_a, point_a), (idx_b, point_b))| (idx_a, idx_b, point_b - point_a))
-            .flat_map(|(a, b, diff)| vec![(a, b, diff), (b, a, -diff)])
-            .collect_vec()
+            .tuple_combinations::<(_, _)>();
+
+        combinations
+            .map(|((idx_a, point_a), (idx_b, point_b))| (point_b - point_a, (idx_a, idx_b)))
+            .collect()
     }
 
     fn match_coord(a: &[Vector], b: &[Vector]) -> Vec<Vector> {
         let a_diffs = diff_list(a);
 
-        let mut b_rotated = Vec::new();
-        let mut matching_diffs = Vec::new();
-        for rotation in all_rotations() {
-            b_rotated = b.iter().map(|v| apply_rotation(*v, rotation)).collect_vec();
-            let n_matching_diffs = diff_list(&b_rotated)
-                .into_iter()
-                .filter(|&(_, _, diff)| a_diffs.iter().any(|&(_, _, a_diff)| a_diff == diff))
-                .collect_vec();
-            if n_matching_diffs.len() >= 2 {
-                matching_diffs = n_matching_diffs;
-                break;
-            }
-        }
-
-        let map = matching_diffs
-            .iter()
-            .map(|&(b1, b2, diff)| {
-                (
-                    b1,
-                    a_diffs
-                        .iter()
-                        .filter(|&&(_, _, adiff)| adiff == diff)
-                        .collect_vec(),
-                )
+        dbg!("new");
+        let matched = (0..24)
+            .map(|rotation| b.iter().map(|v| rotate(*v, rotation)).collect_vec())
+            .map(|rotated| {
+                let diffs = diff_list(&rotated)
+                    .into_iter()
+                    .filter(|(diff, _)| a_diffs.contains_key(diff) || a_diffs.contains_key(&-*diff))
+                    .collect::<HashMap<_, _>>();
+                dbg!(diffs.len());
+                (rotated, diffs)
             })
-            .filter(|(_, found)| found.iter().all(|&&d| d.0 == found[0].0))
-            .map(|(a, b)| (a, b[0].0))
-            .collect::<HashMap<_, _>>();
+            .find(|(rotated, b_diffs)| b_diffs.len() >= 12);
 
-        dbg!(&map);
-        if map.len() < 12 {
-            return vec![];
-        }
+        let (rotated, b_diffs) = match matched {
+            None => return vec![],
+            Some(n) => n,
+        };
+        dbg!(&a_diffs, &b_diffs);
 
-        let first = map.keys().next().unwrap();
-        let diff = b_rotated[*first] - a[map[first]];
-        b_rotated.into_iter().map(|v| v - diff).collect()
+        let first = b_diffs.keys().next().unwrap();
+        let pair = (a_diffs[first], b_diffs[first]);
+        let diff = b[pair.1] - a[pair.0];
+        dbg!(diff);
+        rotated.into_iter().map(|v| v - diff).collect()
     }
 
     pub fn run(path: &str) -> Result<()> {
         let content = std::fs::read_to_string(path)?;
-        let coords: Vec<Vec<Vector>> = content
+        let scanner_list: Vec<Vec<Vector>> = content
             .split("\n\n")
             .map(|section| {
                 section
@@ -154,16 +147,19 @@ mod day19 {
             })
             .collect_vec();
 
-        let mut not_visited = (1..coords.len()).collect::<HashSet<_>>();
-        let mut queue = VecDeque::from([coords[0].clone()]);
-        let mut beacons = vec![coords[0].clone()];
+        match_coord(&scanner_list[0], &scanner_list[1]);
+        return Ok(());
+
+        let mut not_visited = (1..scanner_list.len()).collect::<HashSet<_>>();
+        let mut queue = VecDeque::from([scanner_list[0].clone()]);
+        let mut beacons = vec![scanner_list[0].clone()];
         while queue.is_empty().not() {
             let next = queue.pop_front().unwrap();
             dbg!("pop");
 
             for &i in not_visited.clone().iter() {
                 dbg!(("check", i));
-                let matched = match_coord(&next, &coords[i]);
+                let matched = match_coord(&next, &scanner_list[i]);
                 dbg!(matched.len());
                 if !matched.is_empty() {
                     dbg!(("push", i));
