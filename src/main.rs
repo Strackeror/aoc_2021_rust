@@ -86,45 +86,28 @@ mod day19 {
         }
     }
 
-    fn diff_list(points: &[Vector]) -> HashMap<Vector, (usize, usize)> {
-        let combinations = points
-            .iter()
-            .copied()
-            .enumerate()
-            .tuple_combinations::<(_, _)>();
+    fn match_coord(a: &[Vector], b: &[Vector]) -> (Vector, Vec<Vector>) {
+        for rid in 0..24 {
+            let b_rotated = b.iter().map(|v| rotate(*v, rid)).collect_vec();
 
-        combinations
-            .map(|((idx_a, point_a), (idx_b, point_b))| (point_b - point_a, (idx_a, idx_b)))
-            .collect()
-    }
-
-    fn match_coord(a: &[Vector], b: &[Vector]) -> Vec<Vector> {
-        let a_diffs = diff_list(a);
-
-        dbg!("new");
-        let matched = (0..24)
-            .map(|rotation| b.iter().map(|v| rotate(*v, rotation)).collect_vec())
-            .map(|rotated| {
-                let diffs = diff_list(&rotated)
-                    .into_iter()
-                    .filter(|(diff, _)| a_diffs.contains_key(diff) || a_diffs.contains_key(&-*diff))
-                    .collect::<HashMap<_, _>>();
-                dbg!(diffs.len());
-                (rotated, diffs)
-            })
-            .find(|(rotated, b_diffs)| b_diffs.len() >= 12);
-
-        let (rotated, b_diffs) = match matched {
-            None => return vec![],
-            Some(n) => n,
-        };
-        dbg!(&a_diffs, &b_diffs);
-
-        let first = b_diffs.keys().next().unwrap();
-        let pair = (a_diffs[first], b_diffs[first]);
-        let diff = b[pair.1] - a[pair.0];
-        dbg!(diff);
-        rotated.into_iter().map(|v| v - diff).collect()
+            for (&apos, &bpos) in a.iter().cartesian_product(b_rotated.iter()) {
+                let diff = bpos - apos;
+                let unique_count = b_rotated
+                    .iter()
+                    .map(|v| *v - diff)
+                    .chain(a.iter().copied())
+                    .collect::<HashSet<_>>()
+                    .len();
+                if a.len() + b.len() - unique_count >= 12 {
+                    dbg!(diff);
+                    return (
+                        -diff,
+                        b_rotated.iter().copied().map(|v| v - diff).collect_vec(),
+                    );
+                }
+            }
+        }
+        (Vector(0, 0, 0), vec![])
     }
 
     pub fn run(path: &str) -> Result<()> {
@@ -147,25 +130,24 @@ mod day19 {
             })
             .collect_vec();
 
-        match_coord(&scanner_list[0], &scanner_list[1]);
-        return Ok(());
-
         let mut not_visited = (1..scanner_list.len()).collect::<HashSet<_>>();
         let mut queue = VecDeque::from([scanner_list[0].clone()]);
         let mut beacons = vec![scanner_list[0].clone()];
+        let mut scanners = vec![Vector(0, 0, 0)];
         while queue.is_empty().not() {
             let next = queue.pop_front().unwrap();
             dbg!("pop");
 
             for &i in not_visited.clone().iter() {
                 dbg!(("check", i));
-                let matched = match_coord(&next, &scanner_list[i]);
+                let (pos, matched) = match_coord(&next, &scanner_list[i]);
                 dbg!(matched.len());
                 if !matched.is_empty() {
                     dbg!(("push", i));
                     beacons.push(matched.clone());
                     queue.push_back(matched);
                     not_visited.remove(&i);
+                    scanners.push(pos)
                 }
             }
         }
@@ -174,6 +156,11 @@ mod day19 {
         dbg!(&matched_beacons, matched_beacons.len());
         dbg!(not_visited);
 
+        let scanner_distances = scanners.iter().tuple_combinations().map(|(&a, &b)| b - a);
+        let max_distance = scanner_distances
+            .map(|Vector(x, y, z)| x.abs() + y.abs() + z.abs())
+            .max();
+        dbg!(max_distance);
         Ok(())
     }
 }
