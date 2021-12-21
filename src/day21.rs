@@ -12,8 +12,7 @@ struct PlayerState {
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Copy)]
 struct GameState {
-    p1_state: PlayerState,
-    p2_state: PlayerState,
+    states: [PlayerState; 2],
 }
 
 fn step(mut state: PlayerState, roll: u64) -> PlayerState {
@@ -28,23 +27,14 @@ fn step(mut state: PlayerState, roll: u64) -> PlayerState {
     state
 }
 
-fn game_step(state: GameState, roll: u64, player: u64) -> GameState {
-    match player {
-        1 => GameState {
-            p1_state: step(state.p1_state, roll),
-            ..state
-        },
-        2 => GameState {
-            p2_state: step(state.p2_state, roll),
-            ..state
-        },
-        _ => unreachable!(),
-    }
+fn game_step(mut state: GameState, roll: u64, player: usize) -> GameState {
+    state.states[player] = step(state.states[player], roll);
+    state
 }
 
 fn step_probabilites(
     probabilities: HashMap<GameState, u64>,
-    player: u64,
+    player: usize,
 ) -> HashMap<GameState, u64> {
     probabilities
         .into_iter()
@@ -68,37 +58,27 @@ pub fn run(input: &str) -> Result<()> {
         rollcount: 0,
     };
 
-    let mut p1_won = 0;
-    let mut p2_won = 0;
-    let mut states = HashMap::from([(GameState { p1_state, p2_state }, 1)]);
+    let mut states = HashMap::from([(
+        GameState {
+            states: [p1_state, p2_state],
+        },
+        1,
+    )]);
+    let mut won = [0u64; 2];
     while !states.is_empty() {
-        for player in 1..=2 {
+        for player in 0..2 {
             for _ in 0..3 {
                 states = step_probabilites(states, player);
             }
 
-            let (done, ongoing): (Vec<_>, Vec<_>) =
-                states.into_iter().partition(|&(state, _count)| {
-                    state.p1_state.score >= 21 || state.p2_state.score >= 21
-                });
+            let (done, ongoing): (Vec<_>, Vec<_>) = states
+                .into_iter()
+                .partition(|&(state, _count)| state.states[player].score >= 21);
             states = ongoing.into_iter().collect();
-            p1_won += done.iter().fold(0, |acc, (state, count)| {
-                acc + if state.p1_state.score >= 21 {
-                    *count
-                } else {
-                    0
-                }
-            });
-            p2_won += done.iter().fold(0, |acc, (state, count)| {
-                acc + if state.p2_state.score >= 21 {
-                    *count
-                } else {
-                    0
-                }
-            });
+            won[player] += done.into_iter().fold(0, |acc, (_state, count)| acc + count);
         }
     }
-    dbg!(p1_won, p2_won);
+    dbg!(won);
 
     Ok(())
 }
