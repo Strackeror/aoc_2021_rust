@@ -21,6 +21,7 @@ mod day18;
 mod day19;
 mod day20;
 mod day21;
+mod day22;
 
 fn main() {
     let args = std::env::args().collect_vec();
@@ -49,9 +50,10 @@ fn main() {
             "day18" => day18::run(&input),
             "day19" => day19::run(&input),
             "day20" => day20::run(&input),
+            "day21" => day21::run(&input),
             _ => panic!("unexpected arg"),
         },
-        None => day21::run(&input),
+        None => day22::run(&input),
     }
     .unwrap();
 }
