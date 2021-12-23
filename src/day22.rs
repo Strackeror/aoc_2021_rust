@@ -152,3 +152,18 @@ fn example2() {
 fn input() {
     dbg!(run("input/day22/input.txt"));
 }
+
+#[test]
+fn testcut() {
+    let V1 = Volume {
+        x: (0, 10),
+        y: (0, 10),
+        z: (0, 10),
+    };
+    let V2 = Volume {
+        x: (3, 6),
+        y: (3, 6),
+        z: (3, 6),
+    };
+    dbg!(V1.cut(V2));
+}
