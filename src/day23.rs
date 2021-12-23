@@ -8,7 +8,7 @@ use anyhow::Result;
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 struct State {
     hallway: [i8; 11],
-    rooms: [[i8; 2]; 4],
+    rooms: [[i8; 4]; 4],
 }
 
 const A: i8 = 0;
@@ -32,29 +32,43 @@ impl State {
         }
         println!("##");
 
-        print!("  #");
-        for i in self.rooms {
-            print!("{}#", charmap[&i[1]]);
+        for i in 1..4 {
+            print!("  #");
+            for r in self.rooms {
+                print!("{}#", charmap[&r[i]]);
+            }
+            println!();
         }
-        println!();
-        println!("  #########   ");
+
+        println!("  #########");
 
         println!()
+    }
+
+    fn room_ok(&self, room: usize) -> bool {
+        self.rooms[room]
+            .iter()
+            .all(|r| *r == room as i8 || *r == -1)
+    }
+
+    fn room_depth(&self, room: usize) -> usize {
+        self.rooms[room]
+            .iter()
+            .take_while(|&&pod| pod == -1)
+            .count()
     }
 
     fn possible_states(self) -> Vec<(State, i32)> {
         let mut possible = vec![];
         // room to hallway
         for room in 0..4 {
-            if self.rooms[room] == [-1, room as i8]
-                || self.rooms[room] == [room as i8, room as i8]
-                || self.rooms[room] == [-1, -1]
-            {
+            if self.room_ok(room) {
                 continue;
             }
+
             let room_pos = 2 + room * 2;
-            let depth = if self.rooms[room][0] >= 0 { 0 } else { 1 };
-            let pod = self.rooms[room][depth];
+            let depth = self.room_depth(room);
+            let pod = self.rooms[room as usize][depth];
             for target in (0..room_pos).rev() {
                 if let 2 | 4 | 6 | 8 = target {
                     continue;
@@ -111,17 +125,19 @@ impl State {
                 continue;
             }
 
-            let depth = match self.rooms[pod as usize] {
-                [-1, -1] => 1,
-                [-1, n] if n == pod => 0,
-                _ => continue,
-            };
+            if !self.room_ok(pod as usize) {
+                continue;
+            }
+            let depth = self.room_depth(pod as usize);
+            if depth == 0 {
+                continue;
+            }
 
             let mut hallway = self.hallway;
             let mut rooms = self.rooms;
             hallway[hall] = -1;
-            rooms[pod as usize][depth] = pod;
-            let distance = (hall as isize - room_pos as isize).abs() + depth as isize + 1;
+            rooms[pod as usize][depth - 1] = pod;
+            let distance = (hall as isize - room_pos as isize).abs() + depth as isize;
             possible.push((
                 State { hallway, rooms },
                 distance as i32 * 10i32.pow(pod as u32),
@@ -132,7 +148,7 @@ impl State {
 }
 
 fn min_cost_to(state: State, mem: &mut HashMap<State, Option<i64>>) -> Option<i64> {
-    if state.rooms == [[A, A], [B, B], [C, C], [D, D]] {
+    if state.rooms == [[A, A, A, A], [B, B, B, B], [C, C, C, C], [D, D, D, D]] {
         return Some(0);
     }
 
@@ -153,10 +169,17 @@ fn min_cost_to(state: State, mem: &mut HashMap<State, Option<i64>>) -> Option<i6
 }
 
 fn run(initial: [[i8; 2]; 4]) -> Result<()> {
+    let rooms = [
+        [initial[0][0], D, D, initial[0][1]],
+        [initial[1][0], C, B, initial[1][1]],
+        [initial[2][0], B, A, initial[2][1]],
+        [initial[3][0], A, C, initial[3][1]],
+    ];
     let initial = State {
         hallway: [-1; 11],
-        rooms: initial,
+        rooms,
     };
+
     let mut result_map = HashMap::new();
     dbg!(min_cost_to(initial, &mut result_map));
 
@@ -181,33 +204,6 @@ fn run(initial: [[i8; 2]; 4]) -> Result<()> {
     }
 
     Ok(())
-}
-
-#[test]
-fn cost_0() {
-    assert_eq!(
-        min_cost_to(
-            State {
-                hallway: [-1; 11],
-                rooms: [[A, A], [B, B], [C, C], [D, D]]
-            },
-            &mut HashMap::new()
-        ),
-        Some(0),
-    );
-}
-
-#[test]
-fn paths() {
-    let state = State {
-        hallway: [C, B, -1, -1, -1, A, -1, -1, -1, D, B],
-        rooms: [[-1, -1], [-1, A], [-1, C], [-1, D]],
-    };
-    state.show();
-    println!("->");
-    //state.possible_states().into_iter().for_each(|s| s.0.show());
-
-    dbg!(min_cost_to(state, &mut HashMap::new()));
 }
 
 #[test]
