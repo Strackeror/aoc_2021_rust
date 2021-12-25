@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 anyhow = {version="1.0.51", features=["backtrace"]}
 itertools = "0.10.1"
+peg = "0.7.0"
 scan_fmt = "0.2.6"

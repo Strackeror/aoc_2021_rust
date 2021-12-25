@@ -1,0 +1,134 @@
+use std::collections::HashMap;
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Param {
+    Number(i64),
+    Variable(char),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Expr {
+    Input(char),
+    Add(char, Param),
+    Mul(char, Param),
+    Div(char, Param),
+    Mod(char, Param),
+    Eql(char, Param),
+}
+
+peg::parser! {
+    grammar instructions_parser() for str {
+        rule identifier() -> char = c:$(['a'..='z']) {c.as_bytes()[0] as char}
+        rule number() -> Param =  n:$("-"? ['0'..='9']+) { Param::Number(n.parse().unwrap())}
+        rule variable() -> Param = i:identifier() { Param::Variable(i) }
+        rule param() -> Param = number() / variable()
+
+        rule input() -> Expr = "inp" " " t:identifier()               {Expr::Input(t)}
+        rule add()   -> Expr = "add" " " t:identifier() " " p:param() {Expr::Add(t, p)}
+        rule mul()   -> Expr = "mul" " " t:identifier() " " p:param() {Expr::Mul(t, p)}
+        rule div()   -> Expr = "div" " " t:identifier() " " p:param() {Expr::Div(t, p)}
+        rule modu()  -> Expr = "mod" " " t:identifier() " " p:param() {Expr::Mod(t, p)}
+        rule eql()   -> Expr = "eql" " " t:identifier() " " p:param() {Expr::Eql(t, p)}
+
+        rule inst() -> Expr = input() / add() / mul() / div() / modu() / eql()
+        pub rule list() -> Vec<Expr> = l:inst() ** "\n" {l}
+    }
+}
+
+fn process(exprs: &[Expr]) -> i64 {
+    fn cid(c: char) -> usize {
+        c as usize - 'w' as usize
+    }
+
+    fn param(p: Param, state: &[i64]) -> i64 {
+        match p {
+            Param::Number(n) => n,
+            Param::Variable(c) => state[cid(c)],
+        }
+    }
+
+    fn recursive(
+        idx: usize,
+        digit: usize,
+        state: Vec<i64>,
+        exprs: &[Expr],
+        mem: &mut HashMap<(usize, usize, Vec<i64>), Option<i64>>,
+    ) -> Option<i64> {
+        if idx == exprs.len() {
+            return if state[3] == 1 { Some(0) } else { None };
+        }
+        if let Some(n) = mem.get(&(idx, digit, state.clone())) {
+            return *n;
+        }
+
+        let mut nstate = state.clone();
+        let result = match exprs[idx] {
+            Expr::Input(n) => (0..=9)
+                .filter_map(|d| {
+                    nstate[cid(n)] = d;
+                    Some(
+                        recursive(idx + 1, digit - 1, nstate.clone(), exprs, mem)?
+                            + d * 10i64.pow(digit as u32),
+                    )
+                })
+                .max(),
+            Expr::Eql(c, p) => {
+                nstate[cid(c)] = (nstate[cid(c)] == param(p, &nstate)) as i64;
+                recursive(idx + 1, digit, nstate, exprs, mem)
+            }
+            Expr::Add(c, p) => {
+                nstate[cid(c)] = nstate[cid(c)] + param(p, &nstate);
+                recursive(idx + 1, digit, nstate, exprs, mem)
+            }
+            Expr::Mul(c, p) => {
+                nstate[cid(c)] = nstate[cid(c)] * param(p, &nstate);
+                recursive(idx + 1, digit, nstate, exprs, mem)
+            }
+            Expr::Div(c, p) => {
+                nstate[cid(c)] = nstate[cid(c)] / param(p, &nstate);
+                recursive(idx + 1, digit, nstate, exprs, mem)
+            }
+            Expr::Mod(c, p) => {
+                nstate[cid(c)] = nstate[cid(c)] % param(p, &nstate);
+                recursive(idx + 1, digit, nstate, exprs, mem)
+            }
+        };
+
+        mem.insert((idx, digit, state), result);
+        result
+    }
+
+    let mut mem = HashMap::new();
+    recursive(0, 14, vec![0, 0, 0, 0], exprs, &mut mem).unwrap_or(0)
+}
+
+#[test]
+fn test1() {
+    let parsed =
+        instructions_parser::list(&std::fs::read_to_string("input/day24/test1.txt").unwrap());
+    dbg!(&parsed);
+    dbg!(process(&parsed.unwrap()));
+}
+
+#[test]
+fn example1() {
+    let parsed =
+        instructions_parser::list(&std::fs::read_to_string("input/day24/example1.txt").unwrap());
+    dbg!(&parsed);
+    dbg!(process(&parsed.unwrap()));
+}
+
+#[test]
+fn example2() {
+    let parsed =
+        instructions_parser::list(&std::fs::read_to_string("input/day24/example2.txt").unwrap());
+    dbg!(&parsed);
+    dbg!(process(&parsed.unwrap()));
+}
+#[test]
+fn input() {
+    let parsed =
+        instructions_parser::list(&std::fs::read_to_string("input/day24/input.txt").unwrap());
+    dbg!(&parsed);
+    dbg!(process(&parsed.unwrap()));
+}

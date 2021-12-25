@@ -1,0 +1,6 @@
+inp x
+eql x 7
+inp y
+eql y 9
+add z x
+mul z y

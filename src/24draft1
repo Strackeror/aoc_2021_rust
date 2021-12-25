@@ -1,0 +1,109 @@
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum State {
+    Number(i32),
+    Formula(String),
+}
+
+impl ToString for State {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Number(d) => d.to_string(),
+            Self::Formula(s) => s.clone(),
+        }
+    }
+}
+
+fn merge_states(a: State, b: State, op: &str, op_fn: impl Fn(i32, i32) -> i32) -> State {
+    match (a, b) {
+        (State::Number(a), State::Number(b)) => State::Number(op_fn(a, b)),
+        (a, b) => State::Formula(format!("({}){}({})", a.to_string(), op, b.to_string())),
+    }
+}
+
+fn process(exprs: Vec<Expr>) {
+    let mut states = HashMap::from([
+        ('w', State::Number(0)),
+        ('x', State::Number(0)),
+        ('y', State::Number(0)),
+        ('z', State::Number(0)),
+    ]);
+
+    let mut input_count = 0;
+    for expr in exprs {
+        match expr {
+            Expr::Input(a) => {
+                input_count += 1;
+                states.insert(a, State::Formula(format!("input{}", input_count)));
+            }
+
+            Expr::Add(k, b) => {
+                let a = states[&k].clone();
+                let b = match b {
+                    Param::Number(n) => State::Number(n),
+                    Param::Variable(c) => states[&c].clone(),
+                };
+
+                if b == State::Number(0) {
+                } else {
+                    states.insert(k, merge_states(a, b, "+", std::ops::Add::add));
+                }
+            }
+            Expr::Mul(k, b) => {
+                let a = states[&k].clone();
+                let b = match b {
+                    Param::Number(n) => State::Number(n),
+                    Param::Variable(c) => states[&c].clone(),
+                };
+                if b == State::Number(0) {
+                    states.insert(k, State::Number(0));
+                } else if b == State::Number(1) {
+                } else {
+                    states.insert(k, merge_states(a, b, "*", std::ops::Mul::mul));
+                }
+            }
+            Expr::Div(k, b) => {
+                let a = states[&k].clone();
+                let b = match b {
+                    Param::Number(n) => State::Number(n),
+                    Param::Variable(c) => states[&c].clone(),
+                };
+                if b == State::Number(1) {
+                } else {
+                    states.insert(k, merge_states(a, b, "/", std::ops::Div::div));
+                }
+            }
+
+            Expr::Mod(k, b) => {
+                let a = states[&k].clone();
+                let b = match b {
+                    Param::Number(n) => State::Number(n),
+                    Param::Variable(c) => states[&c].clone(),
+                };
+                if b == State::Number(1) {
+                } else {
+                    states.insert(k, merge_states(a, b, "%", i32::rem_euclid));
+                }
+            }
+
+            Expr::Eql(k, b) => {
+                let a = states[&k].clone();
+                let b = match b {
+                    Param::Number(n) => State::Number(n),
+                    Param::Variable(c) => states[&c].clone(),
+                };
+                states.insert(
+                    k,
+                    merge_states(a, b, "==", |a, b| if a == b { 1 } else { 0 }),
+                );
+            }
+        }
+    }
+    dbg!(states);
+}
+
+fn test_file(path: &str) {
+    let file = std::fs::read_to_string(path).unwrap();
+
+    let mut state = HashMap::from([('x', vec![0]), ('y', vec![0]), ('z', vec![0])]);
+    for inst in file.lines().map(|f| f.split(' ').collect_vec()) {}
+}

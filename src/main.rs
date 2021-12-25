@@ -23,6 +23,7 @@ mod day20;
 mod day21;
 mod day22;
 mod day23;
+mod day25;
 
 fn main() {
     let args = std::env::args().collect_vec();
